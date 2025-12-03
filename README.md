@@ -5,7 +5,7 @@ A Next.js application demonstrating how to integrate Polymarket's **CLOB Client*
 This demo shows developers how to:
 
 - Authenticate users via **Magic Link** email login for web2-style onboarding
-- Provision an **EOA wallet** automatically via Magic's **DKMS** (Decentralized Key Management System)
+- Provision an **EOA wallet** automatically via Magic's **TKMS** (TEE Key Management System)
 - Deploy a **Gnosis Safe Proxy Wallet** using the **builder-relayer-client**
 - Obtain **User API Credentials** from the CLOB
 - Set **token approvals** for CTF Contract, CTF Exchange, Neg Risk Exchange, and Neg Risk Adapter
@@ -97,7 +97,7 @@ This application demonstrates two distinct user flows:
 #### **New User Flow**
 
 1. User authenticates via Magic Link email login
-2. Magic provisions a non-custodial EOA wallet via DKMS
+2. Magic provisions a non-custodial EOA wallet via TKMS
 3. Initialize **RelayClient** with builder config
 4. Derive Safe address (deterministic from Magic EOA)
 5. Deploy Safe using **RelayClient**
@@ -632,10 +632,10 @@ User (email login)
          ↓
     [Magic Link Auth]
          ↓
-    Magic EOA (via DKMS)
+    Magic EOA (via TKMS)
          ↓
 ┌────────────────────────────────────────────────────┐
-│  Trading Session Initialization                     │
+│  Trading Session Initialization                    │
 ├────────────────────────────────────────────────────┤
 │  1. Initialize RelayClient (with builder config)   │
 │  2. Derive Safe address from EOA                   │
@@ -648,7 +648,7 @@ User (email login)
 └────────────────────────────────────────────────────┘
          ↓
 ┌────────────────────────────────────────────────────┐
-│  Authenticated ClobClient                           │
+│  Authenticated ClobClient                          │
 ├────────────────────────────────────────────────────┤
 │  - User API Credentials                            │
 │  - Builder Config (remote signing)                 │
