@@ -1,10 +1,9 @@
-import useMagic from "@/providers/MagicProvider";
 import { useState, useCallback, useEffect } from "react";
-
-import useUserApiCredentials from "@/hooks/useUserApiCredentials";
+import useRelayClient from "@/hooks/useRelayClient";
+import { useWallet } from "@/providers/WalletContext";
 import useTokenApprovals from "@/hooks/useTokenApprovals";
 import useSafeDeployment from "@/hooks/useSafeDeployment";
-import useRelayClient from "@/hooks/useRelayClient";
+import useUserApiCredentials from "@/hooks/useUserApiCredentials";
 
 import {
   loadSession,
@@ -20,22 +19,22 @@ import {
 // It deploys the Safe and sets token approvals for the CTF Exchange
 
 export default function useTradingSession() {
+  const [currentStep, setCurrentStep] = useState<SessionStep>("idle");
+  const [sessionError, setSessionError] = useState<Error | null>(null);
   const [tradingSession, setTradingSession] = useState<TradingSession | null>(
     null
   );
-  const [currentStep, setCurrentStep] = useState<SessionStep>("idle");
-  const [sessionError, setSessionError] = useState<Error | null>(null);
 
-  const { walletClient, eoaAddress } = useMagic();
+  const { eoaAddress, walletClient } = useWallet();
   const { createOrDeriveUserApiCredentials } = useUserApiCredentials();
   const { checkAllTokenApprovals, setAllTokenApprovals } = useTokenApprovals();
   const { derivedSafeAddressFromEoa, isSafeDeployed, deploySafe } =
     useSafeDeployment(eoaAddress);
   const { relayClient, initializeRelayClient, clearRelayClient } =
-    useRelayClient(eoaAddress);
+    useRelayClient();
 
-  // Step 0: Always check for an existing trading session when the wallet is connected using
-  // a custom session object from localStorage to track the status of the user's trading session
+  // Always check for an existing trading session after wallet is connected by checking
+  // session object from localStorage to track the status of the user's trading session
   useEffect(() => {
     if (!eoaAddress) {
       setTradingSession(null);
@@ -45,17 +44,16 @@ export default function useTradingSession() {
     }
 
     const stored = loadSession(eoaAddress);
-    // Always set session (even if null) to clear previous wallet's session
     setTradingSession(stored);
 
-    // Reset state when switching wallets
     if (!stored) {
       setCurrentStep("idle");
       setSessionError(null);
+      return;
     }
   }, [eoaAddress]);
 
-  // This effect restores the relay client when session exists and wallet is ready
+  // Restores the relay client when session exists
   useEffect(() => {
     if (tradingSession && !relayClient && eoaAddress && walletClient) {
       initializeRelayClient().catch((err) => {
@@ -72,26 +70,19 @@ export default function useTradingSession() {
 
   // The core function that orchestrates the trading session initialization
   const initializeTradingSession = useCallback(async () => {
-    if (!eoaAddress) {
-      throw new Error("Wallet not connected");
-    }
+    if (!eoaAddress) throw new Error("Wallet not connected");
 
     setCurrentStep("checking");
     setSessionError(null);
 
     try {
-      // Step 0: Load existing session to start checking what steps
-      // the user has already completed in their trading session
-      const existingSession = loadSession(eoaAddress);
-
-      // Step 1: Initializes relayClient with the user's EOA signer and
-      // builder config (via remote signing server) for authentication
+      // Step 1: Initializes relayClient with the ethers signer and
+      // Builder's credentials (via remote signing server) for authentication
       const initializedRelayClient = await initializeRelayClient();
 
       // Step 2: Get Safe address (deterministic derivation from EOA)
-      if (!derivedSafeAddressFromEoa) {
+      if (!derivedSafeAddressFromEoa)
         throw new Error("Failed to derive Safe address");
-      }
 
       // Step 3: Check if Safe is deployed
       let isDeployed = await isSafeDeployed(
@@ -106,10 +97,10 @@ export default function useTradingSession() {
       }
 
       // Step 5: Get User API Credentials (derive or create)
-      // and store them in the custom session object
-      let apiCreds = existingSession?.apiCredentials;
+      // and store them in the trading session object
+      let apiCreds = tradingSession?.apiCredentials;
       if (
-        !existingSession?.hasApiCredentials ||
+        !tradingSession?.hasApiCredentials ||
         !apiCreds ||
         !apiCreds.key ||
         !apiCreds.secret ||

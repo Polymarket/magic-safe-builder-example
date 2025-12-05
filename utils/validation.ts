@@ -14,4 +14,3 @@ export const isValidDecimalInput = (value: string) =>
 
 export const isValidCentsInput = (value: string) =>
   value === "" || /^\d{0,2}$/.test(value);
-

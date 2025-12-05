@@ -96,7 +96,7 @@ This application demonstrates two distinct user flows:
 
 #### **New User Flow**
 
-1. User authenticates via Magic Link email login
+1. User authenticates via Magic email login
 2. Magic provisions a non-custodial EOA wallet via TKMS
 3. Initialize **RelayClient** with builder config
 4. Derive Safe address (deterministic from Magic EOA)
@@ -110,7 +110,7 @@ This application demonstrates two distinct user flows:
 
 1. User authenticates via Magic Link email login (retrieves existing wallet)
 2. Initialize **RelayClient** with builder config
-3. Load (or derive) existing **User API Credentials** from localStorage
+3. Load (or derive) existing **User API Credentials**
 4. Verify Safe is deployed (skip deployment)
 5. Verify token approvals (skip if already approved)
 6. Initialize authenticated **ClobClient** with credentials + builder config
@@ -122,33 +122,43 @@ This application demonstrates two distinct user flows:
 
 ### 1. Magic Link Authentication
 
-**File**: `providers/MagicProvider.tsx`
+**Files**: `lib/magic.ts`, `providers/WalletContext.tsx`, `providers/WalletProvider.tsx`
 
 Users authenticate via Magic Link's UI, which handles email/social login and automatically provisions a non-custodial EOA wallet. No browser extension required.
 
 ```typescript
+// lib/magic.ts - Magic singleton
 import { Magic as MagicBase } from "magic-sdk";
-import { createWalletClient, custom } from "viem";
-import { polygon } from "viem/chains";
 
-// Initialize Magic instance
-const magic = new MagicBase(process.env.NEXT_PUBLIC_MAGIC_API_KEY, {
-  network: {
-    rpcUrl: POLYGON_RPC_URL,
-    chainId: polygon.id,
-  },
-});
+let magic: MagicBase | null = null;
 
-// Create viem wallet client from Magic's provider
+export default function getMagic(): MagicBase | null {
+  if (typeof window === "undefined") return null;
+  if (magic) return magic;
+
+  magic = new MagicBase(process.env.NEXT_PUBLIC_MAGIC_API_KEY!, {
+    network: { rpcUrl: POLYGON_RPC_URL, chainId: polygon.id },
+  });
+  return magic;
+}
+
+// providers/WalletProvider.tsx - Creates viem + ethers clients
+const magic = getMagic();
+
 const walletClient = createWalletClient({
   chain: polygon,
   transport: custom(magic.rpcProvider),
 });
 
+// Ethers signer for @polymarket libraries
+const ethersProvider = new providers.Web3Provider(magic.rpcProvider);
+const ethersSigner = ethersProvider.getSigner();
+
 // Usage in components:
-await magic.wallet.connectWithUI();  // Opens Magic auth UI
-const userInfo = await magic.user.getInfo();
-const eoaAddress = userInfo.wallets?.ethereum?.publicAddress;
+import { useWallet } from "@/providers/WalletContext";
+
+const { eoaAddress, connect, disconnect, ethersSigner } = useWallet();
+await connect(); // Opens Magic auth UI
 ```
 
 ---
@@ -205,11 +215,14 @@ export async function POST(request: NextRequest) {
 
 **File**: `hooks/useRelayClient.ts`
 
-The **RelayClient** is initialized with the user's Magic EOA signer and builder config. It's used for Safe deployment, token approvals, and CTF operations.
+The **RelayClient** is initialized with the user's Magic EOA signer (from WalletContext) and builder config. It's used for Safe deployment, token approvals, and CTF operations.
 
 ```typescript
 import { RelayClient } from "@polymarket/builder-relayer-client";
 import { BuilderConfig } from "@polymarket/builder-signing-sdk";
+import { useWallet } from "@/providers/WalletContext";
+
+const { ethersSigner } = useWallet();
 
 const builderConfig = new BuilderConfig({
   remoteBuilderConfig: {
@@ -217,20 +230,17 @@ const builderConfig = new BuilderConfig({
   },
 });
 
-const provider = new providers.Web3Provider(magic.rpcProvider);
-const signer = provider.getSigner();
-
 const relayClient = new RelayClient(
   "https://relayer-v2.polymarket.com/",
   137, // Polygon chain ID
-  signer,
+  ethersSigner,
   builderConfig
 );
 ```
 
 **Key Points:**
 
-- Requires user's EOA signer (from Magic)
+- Uses shared `ethersSigner` from WalletContext
 - Requires builder's config for authentication
 - Used for Safe deployment and approvals
 - Persisted throughout trading session
@@ -279,12 +289,15 @@ User API Credentials are obtained by creating a temporary **ClobClient** and cal
 
 ```typescript
 import { ClobClient } from "@polymarket/clob-client";
+import { useWallet } from "@/providers/WalletContext";
+
+const { ethersSigner } = useWallet();
 
 // Create temporary CLOB client (no credentials yet)
 const tempClient = new ClobClient(
   "https://clob.polymarket.com",
   137, // Polygon chain ID
-  signer
+  ethersSigner
 );
 
 // Try to derive existing credentials (for returning users)
@@ -453,6 +466,9 @@ After obtaining User API Credentials, create the authenticated **ClobClient** wi
 ```typescript
 import { ClobClient } from "@polymarket/clob-client";
 import { BuilderConfig } from "@polymarket/builder-signing-sdk";
+import { useWallet } from "@/providers/WalletContext";
+
+const { ethersSigner } = useWallet();
 
 const builderConfig = new BuilderConfig({
   remoteBuilderConfig: {
@@ -463,7 +479,7 @@ const builderConfig = new BuilderConfig({
 const clobClient = new ClobClient(
   "https://clob.polymarket.com",
   137, // Polygon chain ID
-  signer,
+  ethersSigner,
   userApiCredentials, // { key, secret, passphrase }
   2, // signatureType = 2 for EOA associated to a Gnosis Safe proxy wallet
   safeAddress, // funder address from step 4
@@ -475,7 +491,7 @@ const clobClient = new ClobClient(
 
 **Parameters Explained:**
 
-- **signer**: EOA signer from Magic
+- **ethersSigner**: Shared signer from WalletContext
 - **userApiCredentials**: Obtained from Step 5
 - **signatureType = 2**: Type indicating EOA associated to a Gnosis Safe proxy wallet
 - **safeAddress**: The Safe proxy wallet address that holds funds
@@ -533,13 +549,16 @@ await clobClient.cancelOrder({ orderID: "order_id_here" });
 ### Core Implementation Files
 
 ```
-polymarket-magic-eoa/
+polymarket-magic-safe/
 ├── app/
 │   ├── api/
 │   │   └── polymarket/
 │   │       └── sign/
 │   │           └── route.ts              # Remote signing endpoint
 │   └── page.tsx                          # Main application UI
+│
+├── lib/
+│   └── magic.ts                          # Magic singleton instance
 │
 ├── hooks/
 │   ├── useTradingSession.ts              # Session orchestration (main flow)
@@ -551,8 +570,11 @@ polymarket-magic-eoa/
 │   └── useClobOrder.ts                   # Order placement/cancellation
 │
 ├── providers/
-│   ├── MagicProvider.tsx                 # Magic Link authentication + wallet
-│   └── TradingClientProvider.tsx         # Context for clob/relay clients
+│   ├── index.tsx                         # Combined providers export
+│   ├── WalletContext.tsx                 # Wallet context and useWallet hook
+│   ├── WalletProvider.tsx                # Magic auth + viem/ethers clients
+│   ├── TradingProvider.tsx               # Trading session + client context
+│   └── QueryProvider.tsx                 # React Query provider
 │
 ├── utils/
 │   ├── session.ts                        # Session persistence (localStorage)
@@ -614,7 +636,7 @@ POLYMARKET_BUILDER_PASSPHRASE=your_builder_passphrase
 
 | Package                                                                                                  | Version  | Purpose                                          |
 | -------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
-| [`magic-sdk`](https://magic.link/docs)                                                                   | ^31.2.0  | Authentication / Embedded Wallet             |
+| [`magic-sdk`](https://magic.link/docs)                                                                   | ^31.2.0  | Authentication / Embedded Wallet                 |
 | [`@polymarket/clob-client`](https://github.com/Polymarket/clob-client)                                   | ^4.22.8  | Order placement, User API credentials            |
 | [`@polymarket/builder-relayer-client`](https://www.npmjs.com/package/@polymarket/builder-relayer-client) | ^0.0.6   | Safe deployment, token approvals, CTF operations |
 | [`@polymarket/builder-signing-sdk`](https://www.npmjs.com/package/@polymarket/builder-signing-sdk)       | ^0.0.8   | Builder credential HMAC signatures               |

@@ -1,6 +1,6 @@
 "use client";
 
-import useMagic from "@/providers/MagicProvider";
+import { useWallet } from "@/providers/WalletContext";
 import WalletInfo from "@/components/Header/WalletInfo";
 
 export default function Header({
@@ -8,7 +8,7 @@ export default function Header({
 }: {
   onEndSession?: () => void;
 }) {
-  const { eoaAddress, connect, disconnect } = useMagic();
+  const { eoaAddress, connect, disconnect } = useWallet();
 
   const handleDisconnect = async () => {
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import useMagic from "@/providers/MagicProvider";
+import { useWallet } from "@/providers/WalletContext";
 import useSafeDeployment from "@/hooks/useSafeDeployment";
 import usePolygonBalances from "@/hooks/usePolygonBalances";
 
@@ -8,7 +8,7 @@ import Card from "@/components/shared/Card";
 import Badge from "@/components/shared/Badge";
 
 export default function PolygonAssets() {
-  const { eoaAddress } = useMagic();
+  const { eoaAddress } = useWallet();
   const { derivedSafeAddressFromEoa } = useSafeDeployment(eoaAddress);
   const { formattedUsdcBalance, isLoading, isError } = usePolygonBalances(
     derivedSafeAddressFromEoa

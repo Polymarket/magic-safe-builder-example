@@ -1,6 +1,6 @@
 "use client";
 
-import useMagic from "@/providers/MagicProvider";
+import { useWallet } from "@/providers/WalletContext";
 
 import SessionInfo from "@/components/TradingSession/SessionInfo";
 import SessionStatus from "@/components/TradingSession/SessionStatus";
@@ -30,7 +30,7 @@ export default function TradingSession({
   initialize,
   endSession,
 }: Props) {
-  const { eoaAddress } = useMagic();
+  const { eoaAddress } = useWallet();
 
   if (!eoaAddress) {
     return null;

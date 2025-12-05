@@ -1,7 +1,6 @@
-import { providers } from "ethers";
 import { useCallback } from "react";
-import useMagic from "@/providers/MagicProvider";
 import { ClobClient } from "@polymarket/clob-client";
+import { useWallet } from "@/providers/WalletContext";
 import { CLOB_API_URL, POLYGON_CHAIN_ID } from "@/constants/polymarket";
 
 export interface UserApiCredentials {
@@ -14,63 +13,42 @@ export interface UserApiCredentials {
 // the User API Credentials with a temporary ClobClient
 
 export default function useUserApiCredentials() {
-  const { walletClient } = useMagic();
+  const { eoaAddress, ethersSigner } = useWallet();
 
   // Creates temporary clobClient with ethers signer from walletClient
   const createOrDeriveUserApiCredentials =
     useCallback(async (): Promise<UserApiCredentials> => {
-      if (!walletClient) {
-        throw new Error("Wallet not connected");
-      }
+      if (!eoaAddress || !ethersSigner) throw new Error("Wallet not connected");
+
+      const tempClient = new ClobClient(
+        CLOB_API_URL,
+        POLYGON_CHAIN_ID,
+        ethersSigner
+      );
 
       try {
-        const provider = new providers.Web3Provider(walletClient as any);
-        const signer = provider.getSigner();
+        // Try to derive existing credentials first
+        const derivedCreds = await tempClient.deriveApiKey().catch(() => null);
 
-        // Temporary ClobClient which will be destroyed immediately
-        // after getting the user's User API Credentials
-        const tempClient = new ClobClient(
-          CLOB_API_URL,
-          POLYGON_CHAIN_ID,
-          signer
-        );
-
-        // Try to derive the user's existing API key first (for returning users)
-        // or create a new one if it doesn't exist.
-
-        try {
-          // Prompts signer for a signature to derive their User API Credentials
-          const creds = await tempClient.deriveApiKey();
-
-          // Validate that derived credentials actually have values
-          if (creds?.key && creds?.secret && creds?.passphrase) {
-            console.log(
-              "Successfully derived existing User API Credentials",
-              creds
-            );
-            return creds;
-          } else {
-            console.log(
-              "Derived credentials are invalid, creating new ones..."
-            );
-            throw new Error("Invalid derived credentials");
-          }
-        } catch (deriveError) {
-          // If derive fails or returns invalid data, create new User API Credentials
-          console.log("Creating new User API Credentials...");
-          // Prompts signer for a signature to create their User API Credentials
-          const creds = await tempClient.createApiKey();
-          console.log("Successfully created new User API Credentials", creds);
-          return creds;
+        if (
+          derivedCreds?.key &&
+          derivedCreds?.secret &&
+          derivedCreds?.passphrase
+        ) {
+          console.log("Successfully derived existing User API Credentials");
+          return derivedCreds;
         }
-      } catch (err) {
-        const error =
-          err instanceof Error ? err : new Error("Failed to get credentials");
-        throw error;
-      }
-    }, [walletClient]);
 
-  return {
-    createOrDeriveUserApiCredentials,
-  };
+        // Derive failed or returned invalid data - create new credentials
+        console.log("Creating new User API Credentials...");
+        const newCreds = await tempClient.createApiKey();
+        console.log("Successfully created new User API Credentials");
+        return newCreds;
+      } catch (err) {
+        console.error("Failed to get credentials:", err);
+        throw err;
+      }
+    }, [eoaAddress, ethersSigner]);
+
+  return { createOrDeriveUserApiCredentials };
 }

@@ -1,4 +1,4 @@
-import useMagic from "@/providers/MagicProvider";
+import { useWallet } from "@/providers/WalletContext";
 import useAddressCopy from "@/hooks/useAddressCopy";
 import useSafeDeployment from "@/hooks/useSafeDeployment";
 
@@ -11,7 +11,7 @@ export default function WalletInfo({
 }: {
   onDisconnect: () => void;
 }) {
-  const { eoaAddress } = useMagic();
+  const { eoaAddress } = useWallet();
   const { derivedSafeAddressFromEoa } = useSafeDeployment(eoaAddress);
   const { copied: copiedSafe, copyAddress: copySafeAddress } = useAddressCopy(
     derivedSafeAddressFromEoa || null
@@ -63,9 +63,9 @@ export default function WalletInfo({
               <span className="line-through">Polymarket Profile</span>
             </button>
             <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-white/20 z-10 text-center">
-              This Magic EOA is not the same as the polymarket.com Magic EOA.
-              The EOA you create here and the EOA you created on polymarket.com
-              are different.
+              This Magic EOA is not the same as the Polymarket.com Magic EOA.
+              This account is not the same as the Polymarket.com account you
+              created by logging in with your email.
             </div>
           </div>
           <button

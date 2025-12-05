@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import useClobOrder from "@/hooks/useClobOrder";
-import useTradingClient from "@/hooks/useTradingClient";
+import { useTrading } from "@/providers/TradingProvider";
 import useRedeemPosition from "@/hooks/useRedeemPosition";
 import useUserPositions, { PolymarketPosition } from "@/hooks/useUserPositions";
 
@@ -18,8 +18,7 @@ import { DUST_THRESHOLD } from "@/constants/validation";
 import { POLLING_DURATION, POLLING_INTERVAL } from "@/constants/query";
 
 export default function UserPositions() {
-  const { clobClient, relayClient, eoaAddress, safeAddress } =
-    useTradingClient();
+  const { clobClient, relayClient, eoaAddress, safeAddress } = useTrading();
 
   const {
     data: positions,

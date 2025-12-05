@@ -1,10 +1,9 @@
-import { providers } from "ethers";
 import { useCallback, useMemo } from "react";
-import useMagic from "@/providers/MagicProvider";
 import {
   RelayClient,
   RelayerTransactionState,
 } from "@polymarket/builder-relayer-client";
+import { useWallet } from "@/providers/WalletContext";
 import { deriveSafe } from "@polymarket/builder-relayer-client/dist/builder/derive";
 import { getContractConfig } from "@polymarket/builder-relayer-client/dist/config";
 import { POLYGON_CHAIN_ID } from "@/constants/polymarket";
@@ -13,20 +12,20 @@ import { POLYGON_CHAIN_ID } from "@/constants/polymarket";
 // to check if the Safe is already deployed and what the deterministic address is for the Safe
 
 export default function useSafeDeployment(eoaAddress?: string) {
-  const { magic, walletClient } = useMagic();
+  const { publicClient } = useWallet();
 
   // This function derives the Safe address from the EOA address
   const derivedSafeAddressFromEoa = useMemo(() => {
-    if (!eoaAddress || !magic || !POLYGON_CHAIN_ID) return null;
+    if (!eoaAddress || !publicClient || !POLYGON_CHAIN_ID) return undefined;
 
     try {
       const config = getContractConfig(POLYGON_CHAIN_ID);
       return deriveSafe(eoaAddress, config.SafeContracts.SafeFactory);
     } catch (error) {
       console.error("Error deriving Safe address:", error);
-      return null;
+      return undefined;
     }
-  }, [eoaAddress, magic, POLYGON_CHAIN_ID]);
+  }, [eoaAddress, publicClient, POLYGON_CHAIN_ID]);
 
   // This function checks if the Safe is deployed by querying the relay client or RPC
   const isSafeDeployed = useCallback(
@@ -39,16 +38,13 @@ export default function useSafeDeployment(eoaAddress?: string) {
         console.warn("API check failed, falling back to RPC", err);
 
         // Fallback to RPC
-        if (walletClient) {
-          const provider = new providers.Web3Provider(walletClient as any);
-          const code = await provider.getCode(safeAddr);
-          return code !== "0x" && code.length > 2;
-        }
-
-        return false;
+        const code = await publicClient?.getCode({
+          address: safeAddr as `0x${string}`,
+        });
+        return !!code && code !== "0x";
       }
     },
-    [walletClient]
+    [publicClient]
   );
 
   // This function deploys the Safe using the relayClient
@@ -58,7 +54,7 @@ export default function useSafeDeployment(eoaAddress?: string) {
         // Prompts signer for a signature
         const response = await relayClient.deploy();
 
-        // const result = await response.wait(); polls for a minute before timing out
+        // pollUntilState polls for 3 minutes before timing out
         const result = await relayClient.pollUntilState(
           response.transactionID,
           [

@@ -2,12 +2,15 @@
 
 import { ReactNode } from "react";
 import QueryProvider from "./QueryProvider";
-import { MagicProvider } from "./MagicProvider";
+import { WalletProvider } from "./WalletProvider";
+import TradingProvider from "./TradingProvider";
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <MagicProvider>
-      <QueryProvider>{children}</QueryProvider>
-    </MagicProvider>
+    <WalletProvider>
+      <QueryProvider>
+        <TradingProvider>{children}</TradingProvider>
+      </QueryProvider>
+    </WalletProvider>
   );
 }

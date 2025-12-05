@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useClobOrder from "@/hooks/useClobOrder";
 import useActiveOrders from "@/hooks/useActiveOrders";
-import useTradingClient from "@/hooks/useTradingClient";
+import { useTrading } from "@/providers/TradingProvider";
 
 import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
@@ -11,7 +11,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import OrderCard from "@/components/Trading/Orders/OrderCard";
 
 export default function ActiveOrders() {
-  const { clobClient, safeAddress } = useTradingClient();
+  const { clobClient, safeAddress } = useTrading();
   const {
     data: orders,
     isLoading,

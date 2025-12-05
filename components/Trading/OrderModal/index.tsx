@@ -14,6 +14,7 @@ import { convertCentsToPrice } from "@/utils/order";
 import { MIN_ORDER_SIZE } from "@/constants/validation";
 import type { ClobClient } from "@polymarket/clob-client";
 import { isValidSize, isValidPriceCents } from "@/utils/validation";
+import { useWallet } from "@/providers/WalletContext";
 
 type OrderPlacementModalProps = {
   isOpen: boolean;
@@ -24,7 +25,6 @@ type OrderPlacementModalProps = {
   tokenId: string;
   negRisk?: boolean;
   clobClient: ClobClient | null;
-  eoaAddress: string | undefined;
 };
 
 export default function OrderPlacementModal({
@@ -36,13 +36,14 @@ export default function OrderPlacementModal({
   tokenId,
   negRisk = false,
   clobClient,
-  eoaAddress,
 }: OrderPlacementModalProps) {
   const [size, setSize] = useState<string>("");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [limitPrice, setLimitPrice] = useState<string>("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  const { eoaAddress } = useWallet();
 
   const modalRef = useRef<HTMLDivElement>(null);
 

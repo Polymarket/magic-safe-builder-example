@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Polymarket Safe Trader - Magic EOA",
   description:
-    "Polymarket demo using Magic Link for authentication and embedded wallets, trading through their Safe Wallet using the CLOB and Relayer client",
+    "Polymarket demo using Magic Link for authentication and embedded wallets, trading through a Safe Wallet using the CLOB and Relayer client",
 };
 
 export default function RootLayout({

@@ -13,4 +13,3 @@ export const QUERY_REFETCH_INTERVALS = {
 
 export const POLLING_DURATION = 30_000; // 30 seconds
 export const POLLING_INTERVAL = 2_000; // 2 seconds
-

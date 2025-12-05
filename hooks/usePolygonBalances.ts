@@ -1,26 +1,12 @@
+import { erc20Abi, formatUnits } from "viem";
 import { useQuery } from "@tanstack/react-query";
-import { createPublicClient, http, formatUnits } from "viem";
-import { polygon } from "viem/chains";
-import { USDC_E_CONTRACT_ADDRESS } from "@/constants/tokens";
-import { POLYGON_RPC_URL } from "@/constants/polymarket";
+import { useWallet } from "@/providers/WalletContext";
+import { USDC_E_CONTRACT_ADDRESS, USDC_E_DECIMALS } from "@/constants/tokens";
 import { QUERY_STALE_TIMES, QUERY_REFETCH_INTERVALS } from "@/constants/query";
 
-const ERC20_ABI = [
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
+export default function usePolygonBalances(address: string | undefined) {
+  const { publicClient } = useWallet();
 
-const publicClient = createPublicClient({
-  chain: polygon,
-  transport: http(POLYGON_RPC_URL),
-});
-
-export default function usePolygonBalances(address: string | null) {
   const {
     data: usdcBalance,
     isLoading,
@@ -28,14 +14,16 @@ export default function usePolygonBalances(address: string | null) {
   } = useQuery({
     queryKey: ["usdcBalance", address],
     queryFn: async () => {
-      if (!address) return null;
+      if (!address || !publicClient) return null;
 
-      return await publicClient.readContract({
+      const balance = await publicClient.readContract({
         address: USDC_E_CONTRACT_ADDRESS,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: "balanceOf",
         args: [address as `0x${string}`],
       });
+
+      return balance;
     },
     enabled: !!address,
     staleTime: QUERY_STALE_TIMES.BALANCE,
@@ -45,7 +33,7 @@ export default function usePolygonBalances(address: string | null) {
   });
 
   const formattedUsdcBalance = usdcBalance
-    ? parseFloat(formatUnits(usdcBalance, 6))
+    ? parseFloat(formatUnits(usdcBalance, USDC_E_DECIMALS))
     : 0;
 
   return {

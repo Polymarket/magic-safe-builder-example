@@ -11,4 +11,3 @@ export const SUCCESS_STYLES =
 
 export const WARNING_STYLES =
   "bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3" as const;
-
