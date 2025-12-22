@@ -109,6 +109,8 @@ export default function UserPositions() {
       await redeemPosition(relayClient, {
         conditionId: position.conditionId,
         outcomeIndex: position.outcomeIndex,
+        negativeRisk: position.negativeRisk,
+        size: position.size,
       });
 
       queryClient.invalidateQueries({ queryKey: ["polymarket-positions"] });
